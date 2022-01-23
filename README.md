@@ -26,3 +26,6 @@ pip install matplotlib
 ## Ejecucion del archivo:
 
 `python practica6_esqueleto.py nombre_archivo`
+
+parametros:
+    -v --verbose
