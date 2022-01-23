@@ -5,9 +5,10 @@
 # Ejemplo parseo argumentos
 
 import argparse
+from termios import VT1
 import matplotlib.pyplot as plt
 import numpy as np
-
+from time import sleep
 
 class LayoutGraph:
 
@@ -35,6 +36,7 @@ class LayoutGraph:
         self.verbose = verbose
         self.altura = altura
         self.anchura = anchura
+        self.gravedad = 150
         # TODO: faltan opciones
         self.refresh = refresh
 
@@ -63,7 +65,8 @@ class LayoutGraph:
                 mfc='black'
             )
             
-        plt.pause(0.001)
+        plt.pause(0.1)
+
 
     def layout(self):
         """
@@ -76,39 +79,37 @@ class LayoutGraph:
             if const*self.refresh == it:
                 self.dibujar()
                 const+=1
-            
+        ##print("aca hicimos la iteracion ",it)
+            sleep(2)
             self.step()
 
         plt.show()
-            # for v1 , v2 in self.grafo[1]:
-            #     fuerza = self.calcular_atraccion(v1,v2)
-            #     accum_x[v1] += fuerza[0]
-            #     accum_y[v1] += fuerza[1]
-            #     accum_x[v2] -= fuerza[0]
-            #     accum_y[v2] -= fuerza[1]
 
-            # for v1 in self.grafo[0]:
-            #     for v2 in self.grafo[0]:
-            #         if v1 != v2:
-            #             fuerza = self.calcular_repulsion(v1,v2)
-            #             accum_x[v1] += fuerza[0]
-            #             accum_y[v1] += fuerza[1]
-            #             accum_x[v2] -= fuerza[0]
-            #             accum_y[v2] -= fuerza[1]
 
     def step(self):
-        accum_x, accum_y = self.init_acumuladores()
+        accum_x, accum_y = self.init_acumuladores(self.grafo[0])
         self.computar_fuerzas_atraccion(accum_x,accum_y)
         self.computar_fuerzas_repulsion(accum_x,accum_y)
-        self.actualizar_posiciones()
+        self.computar_gravedad(self.grafo[0], accum_x,accum_y)
+        self.actualizar_posiciones(self.grafo[0],accum_x, accum_y)
       
-    
+    def computar_gravedad(self, vertices, accum_x, accum_y):
+        for vertice in vertices:
+            x, y = self.posiciones[vertice]
+            grav_x = self.anchura / 2 - x
+            grav_y = self.altura / 2 - y
+            norma = np.sqrt(grav_x ** 2 + grav_y ** 2)
+            grav = (grav_x / norma * self.gravedad, grav_y / norma * self.gravedad)
+
+            accum_x[vertice] += grav[0]
+            accum_y[vertice] += grav[1]
+
     def computar_fuerzas_atraccion(self, accum_x, accum_y):
         for v1 , v2 in self.grafo[1]:
             distancia = self.norma(v1,v2)
             fuerza_a = self.calcular_atraccion(distancia)
-            f_x = fuerza_a (self.posiciones[v1][0] - self.posiciones[v2][0]) / distancia
-            f_y = fuerza_a (self.posiciones[v1][1] - self.posiciones[v2][1]) / distancia
+            f_x = fuerza_a * (self.posiciones[v1][0] - self.posiciones[v2][0]) / distancia
+            f_y = fuerza_a * (self.posiciones[v1][1] - self.posiciones[v2][1]) / distancia
 
             accum_x[v1] += f_x
             accum_y[v1] += f_y
@@ -121,9 +122,9 @@ class LayoutGraph:
                 if v1 != v2:
                     distancia = self.norma(v1,v2)
                     fuerza_a = self.calcular_repulsion(distancia)
-                    f_x = fuerza_a (self.posiciones[v1][0] - self.posiciones[v2][0]) / distancia
-                    f_y = fuerza_a (self.posiciones[v1][1] - self.posiciones[v2][1]) / distancia
-
+                    f_x = fuerza_a * (self.posiciones[v1][0] - self.posiciones[v2][0]) / distancia
+                    f_y = fuerza_a * (self.posiciones[v1][1] - self.posiciones[v2][1]) / distancia
+                    print(fuerza_a)
                     accum_x[v1] += f_x
                     accum_y[v1] += f_y
                     accum_x[v2] -= f_x
@@ -131,18 +132,33 @@ class LayoutGraph:
 
     def actualizar_posiciones(self, vertices, accum_x, accum_y):
         for vertice in vertices:
-            self.posiciones[vertice][0] += accum_x[vertice]
-            self.posiciones[vertice][1] += accum_y[vertice]
+            x = self.posiciones[vertice][0] + accum_x[vertice]
+            y = self.posiciones[vertice][1] + accum_y[vertice]
+            if x > 100:
+                x = 100
+            if x < 0:
+                x = 0
+            if y > 100:
+                y = 100
+            if y < 0:
+                y = 0
+            self.posiciones[vertice] = (x, y)
+            # self.posiciones[vertice][1] += accum_y[vertice]
 
     def norma(self, v1, v2):
-        return np.linalg.norm(self.posiciones[v1] - self.posiciones[v2])
+        # x1, y1 = self.posiciones[v1]
+        # x2, y2 = self.posiciones[v2]
+        # return np.linalg.norm((x1 - x2, y1 - y2))
+        x1, y1 = self.posiciones[v1]
+        x2, y2 = self.posiciones[v2]
+        return np.sqrt((x2-x1) ** 2 + (y2-y1) ** 2)
 
 
-    def calcular_atraccion(self,distancia):
+    def calcular_atraccion(self, distancia):
         return (distancia**2)/self.k1
 
-    def calcular_repulsion(self,distancia):
-        return self.k2/(distancia**2)
+    def calcular_repulsion(self, distancia):
+        return (self.k2**2)/distancia
 
     def init_acumuladores(self, vertices):
         ## ver de fusionar los acum
@@ -237,8 +253,8 @@ def main():
          grafo = lee_grafo_archivo(args.file_name),
          iters=args.iters,
          refresh=1,
-         c1=0.1,
-         c2=5.0,
+         c1=100,
+         c2=0.9,
          altura=args.altura,
          anchura=args.anchura,
          verbose=args.verbose
