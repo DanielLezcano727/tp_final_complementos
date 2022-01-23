@@ -128,10 +128,10 @@ class LayoutGraph:
                 f_x = fuerza_a * (self.posiciones[v1][0] - self.posiciones[v2][0]) / distancia
                 f_y = fuerza_a * (self.posiciones[v1][1] - self.posiciones[v2][1]) / distancia
 
-                accum_x[v1] += f_x
-                accum_y[v1] += f_y
-                accum_x[v2] -= f_x
-                accum_y[v2] -= f_y
+                accum_x[v2] += f_x
+                accum_y[v2] += f_y
+                accum_x[v1] -= f_x
+                accum_y[v1] -= f_y
 
     def computar_fuerzas_repulsion(self, accum_x, accum_y):
         for v1 in self.grafo[0]:
