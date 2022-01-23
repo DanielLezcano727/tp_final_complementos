@@ -5,6 +5,7 @@
 # Ejemplo parseo argumentos
 
 import argparse
+from re import S
 from termios import VT1
 import matplotlib.pyplot as plt
 import numpy as np
@@ -36,7 +37,7 @@ class LayoutGraph:
         self.verbose = verbose
         self.altura = altura
         self.anchura = anchura
-        self.gravedad = 150
+        self.gravedad = 2
         # TODO: faltan opciones
         self.refresh = refresh
 
@@ -64,8 +65,9 @@ class LayoutGraph:
                 marker='o',
                 mfc='black'
             )
-            
-        plt.pause(0.1)
+        for v in self.grafo[0]:
+            plt.annotate(v, xy=(self.posiciones[v][0], self.posiciones[v][1] + 5))
+        plt.pause(1)
 
 
     def layout(self):
@@ -80,7 +82,6 @@ class LayoutGraph:
                 self.dibujar()
                 const+=1
         ##print("aca hicimos la iteracion ",it)
-            sleep(2)
             self.step()
 
         plt.show()
@@ -94,41 +95,57 @@ class LayoutGraph:
         self.actualizar_posiciones(self.grafo[0],accum_x, accum_y)
       
     def computar_gravedad(self, vertices, accum_x, accum_y):
-        for vertice in vertices:
+        # for vertice in vertices:
+        #     x, y = self.posiciones[vertice]
+        #     grav_x = self.anchura / 2 - x
+        #     grav_y = self.altura / 2 - y
+            # norma = np.sqrt(grav_x ** 2 + grav_y ** 2)
+        #     grav = (grav_x / norma * self.gravedad, grav_y / norma * self.gravedad)
+
+        #     accum_x[vertice] += grav[0]
+        #     accum_y[vertice] += grav[1]
+
+        for vertice in self.grafo[0]:
             x, y = self.posiciones[vertice]
             grav_x = self.anchura / 2 - x
             grav_y = self.altura / 2 - y
-            norma = np.sqrt(grav_x ** 2 + grav_y ** 2)
-            grav = (grav_x / norma * self.gravedad, grav_y / norma * self.gravedad)
+            distancia = np.sqrt(grav_x ** 2 + grav_y ** 2)
 
-            accum_x[vertice] += grav[0]
-            accum_y[vertice] += grav[1]
+            if distancia:
+                f_x = self.gravedad * (self.posiciones[vertice][0] - grav_x) / distancia
+                f_y = self.gravedad * (self.posiciones[vertice][1] - grav_y) / distancia
+                
+                accum_x[vertice] += f_x
+                accum_y[vertice] += f_y
+
+
 
     def computar_fuerzas_atraccion(self, accum_x, accum_y):
         for v1 , v2 in self.grafo[1]:
             distancia = self.norma(v1,v2)
-            fuerza_a = self.calcular_atraccion(distancia)
-            f_x = fuerza_a * (self.posiciones[v1][0] - self.posiciones[v2][0]) / distancia
-            f_y = fuerza_a * (self.posiciones[v1][1] - self.posiciones[v2][1]) / distancia
+            if distancia:
+                fuerza_a = self.calcular_atraccion(distancia)
+                f_x = fuerza_a * (self.posiciones[v1][0] - self.posiciones[v2][0]) / distancia
+                f_y = fuerza_a * (self.posiciones[v1][1] - self.posiciones[v2][1]) / distancia
 
-            accum_x[v1] += f_x
-            accum_y[v1] += f_y
-            accum_x[v2] -= f_x
-            accum_y[v2] -= f_y
+                accum_x[v1] += f_x
+                accum_y[v1] += f_y
+                accum_x[v2] -= f_x
+                accum_y[v2] -= f_y
 
     def computar_fuerzas_repulsion(self, accum_x, accum_y):
         for v1 in self.grafo[0]:
             for v2 in self.grafo[0]:
                 if v1 != v2:
                     distancia = self.norma(v1,v2)
-                    fuerza_a = self.calcular_repulsion(distancia)
-                    f_x = fuerza_a * (self.posiciones[v1][0] - self.posiciones[v2][0]) / distancia
-                    f_y = fuerza_a * (self.posiciones[v1][1] - self.posiciones[v2][1]) / distancia
-                    print(fuerza_a)
-                    accum_x[v1] += f_x
-                    accum_y[v1] += f_y
-                    accum_x[v2] -= f_x
-                    accum_y[v2] -= f_y
+                    if distancia:
+                        fuerza_a = self.calcular_repulsion(distancia)
+                        f_x = fuerza_a * (self.posiciones[v1][0] - self.posiciones[v2][0]) / distancia
+                        f_y = fuerza_a * (self.posiciones[v1][1] - self.posiciones[v2][1]) / distancia
+                        accum_x[v1] -= f_x # Invertimos esto ultimo
+                        accum_y[v1] -= f_y
+                        accum_x[v2] += f_x
+                        accum_y[v2] += f_y
 
     def actualizar_posiciones(self, vertices, accum_x, accum_y):
         for vertice in vertices:
@@ -253,8 +270,8 @@ def main():
          grafo = lee_grafo_archivo(args.file_name),
          iters=args.iters,
          refresh=1,
-         c1=100,
-         c2=0.9,
+         c1=8,
+         c2=0.6,
          altura=args.altura,
          anchura=args.anchura,
          verbose=args.verbose
