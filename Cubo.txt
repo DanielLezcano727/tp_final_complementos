@@ -1,0 +1,21 @@
+8
+a1
+b
+c
+d
+e
+f
+g
+h
+a1 b
+b c
+c d
+d a1
+e f
+f g
+g h
+h e
+a1 e2
+b f
+c g
+d h
