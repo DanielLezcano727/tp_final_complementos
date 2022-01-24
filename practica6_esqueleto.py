@@ -34,7 +34,7 @@ class LayoutGraph:
         c2: constante de atracción
         verbose: si está encendido, activa los comentarios
         """
-        if self.verbose:
+        if verbose:
             print("Inicializando parametros del grafo")
 
         # Guardo el grafo
@@ -151,12 +151,8 @@ class LayoutGraph:
             distancia = np.linalg.norm(grav)
 
             if distancia > EPSILON:
-                f_x = self.gravedad * (self.posiciones[vertice][0] - grav[0]) / distancia
-                f_y = self.gravedad * (self.posiciones[vertice][1] - grav[1]) / distancia
-
-                accum[vertice] = sub_t(accum[vertice], (f_x, f_y))
-
-
+                f = self.calc_f(self.gravedad, self.posiciones[vertice], grav, distancia)
+                accum[vertice] = sub_t(accum[vertice], f)
 
     def computar_fuerzas_atraccion(self, accum):
         if self.verbose:
@@ -174,12 +170,11 @@ class LayoutGraph:
                 distancia = self.norma(v1,v2)
 
             # Calculamos la atraccion y modificamos ambos vertices
-            fuerza_a = self.calcular_atraccion(distancia)
-            f_x = fuerza_a * (self.posiciones[v2][0] - self.posiciones[v1][0]) / distancia
-            f_y = fuerza_a * (self.posiciones[v2][1] - self.posiciones[v1][1]) / distancia
+            fuerza = self.calcular_atraccion(distancia)
+            f = self.calc_f(fuerza, self.posiciones[v2], self.posiciones[v1], distancia)
 
-            accum[v1] = sum_t(accum[v1], (f_x, f_y))
-            accum[v2] = sub_t(accum[v2], (f_x, f_y))
+            accum[v1] = sum_t(accum[v1], f)
+            accum[v2] = sub_t(accum[v2], f)
 
     def computar_fuerzas_repulsion(self, accum):
         if self.verbose:
@@ -197,12 +192,11 @@ class LayoutGraph:
                         self.posiciones[v2] = sum_t(self.posiciones[v2], (num, num))
                         self.posiciones[v1] = sub_t(self.posiciones[v1], (num, num))
                         distancia = self.norma(v1,v2)
-                        
-                    fuerza_a = self.calcular_repulsion(distancia)
-                    f_x = fuerza_a * (self.posiciones[v2][0] - self.posiciones[v1][0]) / distancia
-                    f_y = fuerza_a * (self.posiciones[v2][1] - self.posiciones[v1][1]) / distancia
-                    accum[v1] = sub_t(accum[v1], (f_x, f_y))
-                    accum[v2] = sum_t(accum[v2], (f_x, f_y))
+
+                    fuerza = self.calcular_repulsion(distancia)
+                    f = self.calc_f(fuerza, self.posiciones[v2], self.posiciones[v1], distancia)
+                    accum[v1] = sub_t(accum[v1], f)
+                    accum[v2] = sum_t(accum[v2], f)
 
     def actualizar_posiciones(self, vertices, accum):
         if self.verbose:
@@ -264,6 +258,10 @@ class LayoutGraph:
 
     def limit_point(self, p):
         return (self.limit(p[0], self.anchura), self.limit(p[1], self.altura))
+
+    def calc_f(self, f, v1, v2, distancia):
+        res = (f * (v1[0] - v2[0]) / distancia, f * (v1[1] - v2[1]) / distancia)
+        return res
 
 def lee_grafo_archivo(file_path):
     with open(file_path, "r") as f:
