@@ -29,3 +29,15 @@ pip install matplotlib
 
 parametros:
     -v --verbose
+
+
+## Falta hacer:
+
+- Verificar:
+  - ejes
+  - Cuadrantes
+  - Fix gravedad
+  - Si dos puntos estan cerca ahora se repelen
+- Hacer:
+  - Casos cuando toca el borde
+  - Verificar constantes cuando son muchos vertices o aristas

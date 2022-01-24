@@ -9,11 +9,24 @@ from re import S
 from termios import VT1
 import matplotlib.pyplot as plt
 import numpy as np
-from time import sleep
+
+C_REPULSION = 0.1
+C_ATRACCION = 0.9
+
+MAX_X = 100
+MAX_Y = 100
+
+EPSILON= 0.005
+
+def sum_t(t1, t2):
+    return (t1[0] + t2[0], t1[1] + t2[1])
+
+def sub_t(t1, t2):
+    return (t1[0] - t2[0], t1[1] - t2[1])
 
 class LayoutGraph:
 
-    def __init__(self, grafo, iters, refresh, c1, c2, altura,anchura ,verbose=False):
+    def __init__(self, grafo, iters, refresh, c1, c2, altura, anchura, temp, gravedad, t0, verbose=False):
         """
         Parámetros:
         grafo: grafo en formato lista
@@ -37,25 +50,42 @@ class LayoutGraph:
         self.verbose = verbose
         self.altura = altura
         self.anchura = anchura
-        self.gravedad = 2
-        # TODO: faltan opciones
+        self.gravedad = gravedad
         self.refresh = refresh
+        self.t0 = t0
 
+        
         # ver si hace falta
         self.c1 = c1
         self.c2 = c2
 
-        self.k1 = c1*np.sqrt((anchura*altura)/len(grafo[0]))
-        self.k2 = c2*np.sqrt((anchura*altura)/len(grafo[0]))
+        k = np.sqrt((anchura*altura)/len(grafo[0]))
+
+        self.temperatura = temp
+        self.k1 = c1*k
+        self.k2 = c2*k
+
+
+        if self.verbose:
+            print("Inicializando parametros del grafo")
 
     def init_posiciones(self, vertices):
+        if self.verbose:
+            print("Inicializando posiciones de los vertices")
         return {
             key: tuple(np.random.randint(101,size=2))
             for key in vertices
         }
 
     def dibujar_grafo(self):
+        if self.verbose:
+            print("Graficando")
         plt.clf()
+        minimo_y = self.altura
+        maximo_y = 0
+        minimo_x = self.anchura
+        maximo_x = 0
+
         for v1 , v2 in self.grafo[1]:
 
             plt.plot(
@@ -65,9 +95,18 @@ class LayoutGraph:
                 marker='o',
                 mfc='black'
             )
+
         for v in self.grafo[0]:
             plt.annotate(v, xy=(self.posiciones[v][0], self.posiciones[v][1] + 5))
-        plt.pause(1)
+            
+            maximo_y = max(self.posiciones[v][1], maximo_y)
+            maximo_x = max(self.posiciones[v][0], maximo_x)
+            minimo_y = min(self.posiciones[v][1], minimo_y)
+            minimo_x = min(self.posiciones[v][0], minimo_x)
+            
+        plt.axis((minimo_x - 20, maximo_x + 20, minimo_y - 20, maximo_y + 20))
+
+        plt.pause(0.1)
 
 
     def layout(self):
@@ -75,6 +114,10 @@ class LayoutGraph:
         Aplica el algoritmo de Fruchtermann-Reingold para obtener (y mostrar)
         un layout
         """
+        if self.verbose:
+            print("Iniciando graficado")
+
+
         const=0
         self.posiciones = self.init_posiciones(self.grafo[0])
         for it in range(0,self.iters):
@@ -88,87 +131,139 @@ class LayoutGraph:
 
 
     def step(self):
-        accum_x, accum_y = self.init_acumuladores(self.grafo[0])
-        self.computar_fuerzas_atraccion(accum_x,accum_y)
-        self.computar_fuerzas_repulsion(accum_x,accum_y)
-        self.computar_gravedad(self.grafo[0], accum_x,accum_y)
-        self.actualizar_posiciones(self.grafo[0],accum_x, accum_y)
-      
-    def computar_gravedad(self, vertices, accum_x, accum_y):
-        # for vertice in vertices:
-        #     x, y = self.posiciones[vertice]
-        #     grav_x = self.anchura / 2 - x
-        #     grav_y = self.altura / 2 - y
-            # norma = np.sqrt(grav_x ** 2 + grav_y ** 2)
-        #     grav = (grav_x / norma * self.gravedad, grav_y / norma * self.gravedad)
+        accum = self.init_acumuladores(self.grafo[0])
+        # self.arreglar_bordes(self.grafo[0], accum)
+        self.computar_fuerzas_atraccion(accum)
+        self.computar_fuerzas_repulsion(accum)
+        self.computar_gravedad(self.grafo[0], accum)
+        self.actualizar_posiciones(self.grafo[0], accum)
+        self.update_temperature()
 
-        #     accum_x[vertice] += grav[0]
-        #     accum_y[vertice] += grav[1]
-
-        for vertice in self.grafo[0]:
+    def arreglar_bordes(self, vertices, accum):
+        for vertice in vertices:
             x, y = self.posiciones[vertice]
-            grav_x = self.anchura / 2 - x
-            grav_y = self.altura / 2 - y
-            distancia = np.sqrt(grav_x ** 2 + grav_y ** 2)
-
-            if distancia:
-                f_x = self.gravedad * (self.posiciones[vertice][0] - grav_x) / distancia
-                f_y = self.gravedad * (self.posiciones[vertice][1] - grav_y) / distancia
+            if x == 0 or x == self.anchura:
+                grav = (self.anchura / 2 - x, self.altura / 2 - y)
+                distancia = np.linalg.norm(grav)
+                f_x = 100* (self.posiciones[vertice][0] - grav[0]) / distancia
                 
-                accum_x[vertice] += f_x
-                accum_y[vertice] += f_y
+                accum[vertice] = sub_t(accum[vertice], (f_x, 0))
+            if y == 0 or y == self.altura:
+                grav = (self.anchura / 2 - x, self.altura / 2 - y)
+                distancia = np.linalg.norm(grav)
+                f_y = 100* (self.posiciones[vertice][1] - grav[1]) / (2*distancia)
+                
+                accum[vertice] = sub_t(accum[vertice], (0, f_y))
+
+    def update_temperature(self):
+        self.temperatura *= 0.95
+      
+    def computar_gravedad(self, vertices, accum):
+        if self.verbose:
+            print("Computando fuerza de gravedad...")
+        for vertice in vertices:
+            x, y = self.posiciones[vertice]
+            grav = (self.anchura / 2 - x, self.altura / 2 - y)
+            distancia = np.linalg.norm(grav)
+
+            # if distancia < EPSILON: Ver si va
+            #     num=np.random.rand(1)
+            #     self.posiciones[vertice] = sub_t(self.posiciones[vertice], (num[0], num[0]))
+            #     x, y = self.posiciones[vertice]
+            #     grav = (self.anchura / 2 - x, self.altura / 2 - y)
+            #     distancia = np.linalg.norm(grav)
+            if distancia:
+                f_x = self.gravedad * (self.posiciones[vertice][0] - grav[0]) / distancia
+                f_y = self.gravedad * (self.posiciones[vertice][1] - grav[1]) / distancia
+                
+                accum[vertice] = sub_t(accum[vertice], (f_x, f_y))
 
 
 
-    def computar_fuerzas_atraccion(self, accum_x, accum_y):
+    def computar_fuerzas_atraccion(self, accum):
+        if self.verbose:
+            print("Computando fuerza de atraccion...")
         for v1 , v2 in self.grafo[1]:
             distancia = self.norma(v1,v2)
-            if distancia:
-                fuerza_a = self.calcular_atraccion(distancia)
-                f_x = fuerza_a * (self.posiciones[v1][0] - self.posiciones[v2][0]) / distancia
-                f_y = fuerza_a * (self.posiciones[v1][1] - self.posiciones[v2][1]) / distancia
+            if distancia<EPSILON:
+                num=np.random.rand(1)
+                self.posiciones[v2] = sum_t(self.posiciones[v2], (num[0], num[0]))
+                self.posiciones[v1] = sub_t(self.posiciones[v1], (num[0], num[0]))
+                distancia = self.norma(v1,v2)
 
-                accum_x[v2] += f_x
-                accum_y[v2] += f_y
-                accum_x[v1] -= f_x
-                accum_y[v1] -= f_y
+            fuerza_a = self.calcular_atraccion(distancia)
+            f_x = fuerza_a * (self.posiciones[v2][0] - self.posiciones[v1][0]) / distancia
+            f_y = fuerza_a * (self.posiciones[v2][1] - self.posiciones[v1][1]) / distancia
 
-    def computar_fuerzas_repulsion(self, accum_x, accum_y):
+            accum[v1] = sum_t(accum[v1], (f_x, f_y))
+            accum[v2] = sub_t(accum[v2], (f_x, f_y))
+
+    def computar_fuerzas_repulsion(self, accum):
+        if self.verbose:
+            print("Computando fuerza de repulsion...")
         for v1 in self.grafo[0]:
             for v2 in self.grafo[0]:
+                # if v1 != v2 and self.mismo_cuadrante(self.posiciones[v1],self.posiciones[v2]):
                 if v1 != v2:
                     distancia = self.norma(v1,v2)
-                    if distancia:
-                        fuerza_a = self.calcular_repulsion(distancia)
-                        f_x = fuerza_a * (self.posiciones[v1][0] - self.posiciones[v2][0]) / distancia
-                        f_y = fuerza_a * (self.posiciones[v1][1] - self.posiciones[v2][1]) / distancia
-                        accum_x[v1] -= f_x # Invertimos esto ultimo
-                        accum_y[v1] -= f_y
-                        accum_x[v2] += f_x
-                        accum_y[v2] += f_y
+ 
+                    if distancia<EPSILON:
+                        num=np.random.rand(1)
+                        self.posiciones[v2] = sum_t(self.posiciones[v2], (num[0], num[0]))
+                        self.posiciones[v1] = sub_t(self.posiciones[v1], (num[0], num[0]))
+                        distancia = self.norma(v1,v2)
+                        
+                    fuerza_a = self.calcular_repulsion(distancia)
+                    f_x = fuerza_a * (self.posiciones[v2][0] - self.posiciones[v1][0]) / distancia
+                    f_y = fuerza_a * (self.posiciones[v2][1] - self.posiciones[v1][1]) / distancia
+                    accum[v1] = sub_t(accum[v1], (f_x, f_y))
+                    accum[v2] = sum_t(accum[v2], (f_x, f_y))
 
-    def actualizar_posiciones(self, vertices, accum_x, accum_y):
+    def actualizar_posiciones(self, vertices, accum):
+        if self.verbose:
+            print("Actualizando posiciones")
         for vertice in vertices:
-            x = self.posiciones[vertice][0] + accum_x[vertice]
-            y = self.posiciones[vertice][1] + accum_y[vertice]
-            if x > 100:
-                x = 100
-            if x < 0:
-                x = 0
-            if y > 100:
-                y = 100
-            if y < 0:
-                y = 0
-            self.posiciones[vertice] = (x, y)
-            # self.posiciones[vertice][1] += accum_y[vertice]
+            modulo = np.linalg.norm(accum[vertice])
+            if (modulo > self.temperatura):
+                v_x, v_y = accum[vertice]
+                f_x = (v_x / modulo) * self.temperatura
+                f_y = (v_y / modulo) * self.temperatura
+                accum[vertice] = (f_x, f_y)
+
+            nueva_posicion = sum_t(self.posiciones[vertice], accum[vertice])
+            self.posiciones[vertice] = self.limit_point(nueva_posicion)
+
+            # if self.posiciones[vertice][0] == 0:
+            # if self.posiciones[vertice][0] == 100:
+            # if self.posiciones[vertice][1] == 0:
+            # if self.posiciones[vertice][1] == 100:
 
     def norma(self, v1, v2):
-        # x1, y1 = self.posiciones[v1]
-        # x2, y2 = self.posiciones[v2]
-        # return np.linalg.norm((x1 - x2, y1 - y2))
         x1, y1 = self.posiciones[v1]
         x2, y2 = self.posiciones[v2]
-        return np.sqrt((x2-x1) ** 2 + (y2-y1) ** 2)
+        return np.linalg.norm((x1 - x2, y1 - y2))
+
+    def cuadrante(self, vertice):
+        mitad_x=MAX_X/2
+        mitad_y=MAX_Y/2
+        x=vertice[0]
+        y=vertice[1]
+        cuad=4
+        if x<mitad_x and y < mitad_y:
+            cuad=1
+        elif x>=mitad_x and y < mitad_y:
+            cuad=2
+        elif x<mitad_x and y >= mitad_y:
+            cuad=3
+        return cuad    
+
+    def mismo_cuadrante(self,vertice1,vertice2):
+        c1=self.cuadrante(vertice1)
+        c2=self.cuadrante(vertice2)
+        bandera=True
+        if c1!=c2:
+            bandera=False
+        return bandera    
 
 
     def calcular_atraccion(self, distancia):
@@ -177,20 +272,17 @@ class LayoutGraph:
     def calcular_repulsion(self, distancia):
         return (self.k2**2)/distancia
 
-    def init_acumuladores(self, vertices):
-        ## ver de fusionar los acum
-        accum_x = {}
-        accum_y = {}
+    def init_acumuladores(self, vertices): # Me parece que esto si puede ser una lista de listas mejor
+        return { vertice: (0, 0) for vertice in vertices }
 
-        for vertice in vertices:
-            accum_x[vertice] = 0
-            accum_y[vertice] = 0
-
-        return [accum_x, accum_y]
-
-    def dibujar(self):
+    def dibujar(self): # Me parece que esto ya habria que borrarlo
         self.dibujar_grafo()
     
+    def limit(self, n, lim):
+        return max(0, min(lim, n))
+
+    def limit_point(self, p):
+        return (self.limit(p[0], self.anchura), self.limit(p[1], self.altura))
 
 def lee_grafo_archivo(file_path):
     with open(file_path, "r") as f:
@@ -221,7 +313,7 @@ def main():
         '--iters',
         type=int,
         help='Cantidad de iteraciones a efectuar',
-        default=50
+        default=100
     )
 
     # 
@@ -229,7 +321,15 @@ def main():
         '--altura',
         type=int,
         help='Altura de la ventana',
-        default=100
+        default=MAX_Y
+    )
+
+        # 
+    parser.add_argument(
+        '--refresh',
+        type=int,
+        help='refresh',
+        default=7
     )
 
       # 
@@ -237,14 +337,14 @@ def main():
         '--anchura',
         type=int,
         help='Anchura de la ventana',
-        default=100
+        default=MAX_X
     )
     # Temperatura inicial
     parser.add_argument(
         '--temp',
         type=float,
         help='Temperatura inicial',
-        default=100.0
+        default=10.0
     )
     # Archivo del cual leer el grafo
     parser.add_argument(
@@ -252,6 +352,37 @@ def main():
         help='Archivo del cual leer el grafo a dibujar'
     )
 
+    #
+    parser.add_argument(
+        '--c1',
+        type=float,
+        help='constante de atraccion',
+        default=C_ATRACCION
+    )
+
+        #
+    parser.add_argument(
+        '--c2',
+        type=float,
+        help='constante de repulsion',
+        default=C_REPULSION
+    )
+
+            #
+    parser.add_argument(
+        '--gravedad',
+        type=int,
+        help='constante de gravedad',
+        default=10
+    )
+
+                #
+    parser.add_argument(
+        '--t0',
+        type=float,
+        help='constante de temperatura',
+        default=0.5
+    )
     args = parser.parse_args()
 
     # Descomentar abajo para ver funcionamiento de argparse
@@ -260,7 +391,7 @@ def main():
     #print(args.file_name)
     #print(args.temp)
     #return
-
+   
     # # TODO: Borrar antes de la entrega
     grafo1 = ([1, 2, 3, 4, 5, 6, 7],
               [(1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 7), (7, 1)])
@@ -269,12 +400,15 @@ def main():
     layout_gr = LayoutGraph(
          grafo = lee_grafo_archivo(args.file_name),
          iters=args.iters,
-         refresh=1,
-         c1=8,
-         c2=0.6,
+         refresh=args.refresh,
+         c1=args.c1,
+         c2=args.c2,
          altura=args.altura,
          anchura=args.anchura,
-         verbose=args.verbose
+         verbose=args.verbose,
+         temp=args.temp,
+         gravedad=args.gravedad,
+         t0=args.t0
      )
     
     # # Ejecutamos el layout
