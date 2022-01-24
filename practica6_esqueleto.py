@@ -168,9 +168,9 @@ class LayoutGraph:
 
             # Si estan muy cerca los alejamos
             if distancia < EPSILON:
-                num=np.random.rand(1)
-                self.posiciones[v2] = sum_t(self.posiciones[v2], (num[0], num[0]))
-                self.posiciones[v1] = sub_t(self.posiciones[v1], (num[0], num[0]))
+                num=np.random.rand()
+                self.posiciones[v2] = sum_t(self.posiciones[v2], (num, num))
+                self.posiciones[v1] = sub_t(self.posiciones[v1], (num, num))
                 distancia = self.norma(v1,v2)
 
             # Calculamos la atraccion y modificamos ambos vertices
