@@ -16,7 +16,7 @@ import numpy as np
 C_REPULSION = 0.1
 C_ATRACCION = 0.9
 
-GRAFO_COMPLEJO = 20     #Cantidad de vertices
+GRAFO_COMPLEJO = 15     #Cantidad de vertices
 # Constantes para el cilindro: C_REPULSION: 0.15
 # Constantes para el cilindro: C_ATRACCION: 0.1
 
@@ -25,7 +25,7 @@ CONS_ANCHURA = 100
 CONS_ALTURA = 100
 CONS_REFRESH = 7
 CONS_GRAVEDAD = 10
-CANT_CONS_ITERS=100
+CANT_CONS_ITERS=200
 CONS_TEMP = 0.95
 CONS_TEMP_INI= 10.0
 EPSILON= 0.005
@@ -98,9 +98,6 @@ class LayoutGraph:
         # Guardo el grafo
         self.grafo = grafo
 
-        # Inicializamos las posiciones de los vertices
-        self.posiciones = self.init_posiciones(grafo[0])
-
         # Guardo opciones
         self.iters = iters
         self.verbose = verbose
@@ -109,6 +106,9 @@ class LayoutGraph:
         self.gravedad = gravedad
         self.refresh = refresh
         self.t0 = t0
+
+        # Inicializamos las posiciones de los vertices
+        self.posiciones = self.init_posiciones(grafo[0])
 
         # Calculamos las constantes de atraccion y repulsion
         self.cantidad_vertices = len(self.grafo[0])
