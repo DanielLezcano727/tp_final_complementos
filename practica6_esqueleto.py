@@ -58,6 +58,7 @@ class LayoutGraph:
 
         k = np.sqrt((anchura*altura)/len(grafo[0]))
 
+        self.temperatura = anchura / 10
         self.k1 = c1*k
         self.k2 = c2*k
 
@@ -80,7 +81,7 @@ class LayoutGraph:
             )
         for v in self.grafo[0]:
             plt.annotate(v, xy=(self.posiciones[v][0], self.posiciones[v][1] + 5))
-        plt.pause(1)
+        plt.pause(0.1)
 
 
     def layout(self):
@@ -106,6 +107,10 @@ class LayoutGraph:
         self.computar_fuerzas_repulsion(accum)
         self.computar_gravedad(self.grafo[0], accum)
         self.actualizar_posiciones(self.grafo[0], accum)
+        self.update_temperature()
+
+    def update_temperature(self):
+        self.temperatura *= 0.95
       
     def computar_gravedad(self, vertices, accum):
         for vertice in vertices:
@@ -146,6 +151,12 @@ class LayoutGraph:
 
     def actualizar_posiciones(self, vertices, accum):
         for vertice in vertices:
+            modulo = np.linalg.norm(accum[vertice])
+            if (modulo > self.temperatura):
+                v_x, v_y = accum[vertice]
+                f_x = (v_x / modulo) * self.temperatura
+                f_y = (v_y / modulo) * self.temperatura
+                accum[vertice] = (f_x, f_y)
             nueva_posicion = sum_t(self.posiciones[vertice], accum[vertice])
             self.posiciones[vertice] = self.limit_point(nueva_posicion)
 
