@@ -9,7 +9,12 @@ from re import S
 from termios import VT1
 import matplotlib.pyplot as plt
 import numpy as np
-from time import sleep
+
+C_REPULSION = 0.1
+C_ATRACCION = 0.9
+
+MAX_X = 150
+MAX_Y = 150
 
 def sum_t(t1, t2):
     return (t1[0] + t2[0], t1[1] + t2[1])
@@ -51,8 +56,10 @@ class LayoutGraph:
         self.c1 = c1
         self.c2 = c2
 
-        self.k1 = c1*np.sqrt((anchura*altura)/len(grafo[0]))
-        self.k2 = c2*np.sqrt((anchura*altura)/len(grafo[0]))
+        k = np.sqrt((anchura*altura)/len(grafo[0]))
+
+        self.k1 = c1*k
+        self.k2 = c2*k
 
     def init_posiciones(self, vertices):
         return {
@@ -101,15 +108,14 @@ class LayoutGraph:
         self.actualizar_posiciones(self.grafo[0], accum)
       
     def computar_gravedad(self, vertices, accum):
-        for vertice in self.grafo[0]:
+        for vertice in vertices:
             x, y = self.posiciones[vertice]
-            grav_x = self.anchura / 2 - x
-            grav_y = self.altura / 2 - y
-            distancia = np.sqrt(grav_x ** 2 + grav_y ** 2)
+            grav = (self.anchura / 2 - x, self.altura / 2 - y)
+            distancia = np.linalg.norm(grav)
 
             if distancia:
-                f_x = self.gravedad * (self.posiciones[vertice][0] - grav_x) / distancia
-                f_y = self.gravedad * (self.posiciones[vertice][1] - grav_y) / distancia
+                f_x = self.gravedad * (self.posiciones[vertice][0] - grav[0]) / distancia
+                f_y = self.gravedad * (self.posiciones[vertice][1] - grav[0]) / distancia
                 
                 accum[vertice] = sum_t(accum[vertice], (f_x, f_y))
 
@@ -120,11 +126,11 @@ class LayoutGraph:
             distancia = self.norma(v1,v2)
             if distancia:
                 fuerza_a = self.calcular_atraccion(distancia)
-                f_x = fuerza_a * (self.posiciones[v1][0] - self.posiciones[v2][0]) / distancia
-                f_y = fuerza_a * (self.posiciones[v1][1] - self.posiciones[v2][1]) / distancia
+                f_x = fuerza_a * (self.posiciones[v2][0] - self.posiciones[v1][0]) / distancia
+                f_y = fuerza_a * (self.posiciones[v2][1] - self.posiciones[v1][1]) / distancia
 
-                accum[v2] = sum_t(accum[v2], (f_x, f_y))
-                accum[v1] = sub_t(accum[v1], (f_x, f_y))
+                accum[v1] = sum_t(accum[v1], (f_x, f_y))
+                accum[v2] = sub_t(accum[v2], (f_x, f_y))
 
     def computar_fuerzas_repulsion(self, accum):
         for v1 in self.grafo[0]:
@@ -133,8 +139,8 @@ class LayoutGraph:
                     distancia = self.norma(v1,v2)
                     if distancia:
                         fuerza_a = self.calcular_repulsion(distancia)
-                        f_x = fuerza_a * (self.posiciones[v1][0] - self.posiciones[v2][0]) / distancia
-                        f_y = fuerza_a * (self.posiciones[v1][1] - self.posiciones[v2][1]) / distancia
+                        f_x = fuerza_a * (self.posiciones[v2][0] - self.posiciones[v1][0]) / distancia
+                        f_y = fuerza_a * (self.posiciones[v2][1] - self.posiciones[v1][1]) / distancia
                         accum[v1] = sub_t(accum[v1], (f_x, f_y))
                         accum[v2] = sum_t(accum[v2], (f_x, f_y))
 
@@ -204,7 +210,7 @@ def main():
         '--altura',
         type=int,
         help='Altura de la ventana',
-        default=100
+        default=MAX_Y
     )
 
       # 
@@ -212,7 +218,7 @@ def main():
         '--anchura',
         type=int,
         help='Anchura de la ventana',
-        default=100
+        default=MAX_X
     )
     # Temperatura inicial
     parser.add_argument(
@@ -245,8 +251,8 @@ def main():
          grafo = lee_grafo_archivo(args.file_name),
          iters=args.iters,
          refresh=1,
-         c1=8,
-         c2=0.6,
+         c1=C_ATRACCION,
+         c2=C_REPULSION,
          altura=args.altura,
          anchura=args.anchura,
          verbose=args.verbose
