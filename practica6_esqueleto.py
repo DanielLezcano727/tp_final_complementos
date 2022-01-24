@@ -1,29 +1,84 @@
 #! /usr/bin/python
 
-# 6ta Practica Laboratorio 
+# Cavagna - Lezcano
 # Complementos Matematicos I
-# Ejemplo parseo argumentos
+# TP FINAL - Dibujar grafos
 
+
+#------------------------<<Librerias importadas>>-----------------------------#
 import argparse
 import matplotlib.pyplot as plt
 import numpy as np
+#-----------------------------------------------------------------------------#
+
+#------------------------<<Constantes>>-----------------------------#
 
 C_REPULSION = 0.1
 C_ATRACCION = 0.9
 
+GRAFO_COMPLEJO = 20     #Cantidad de vertices
 # Constantes para el cilindro: C_REPULSION: 0.15
 # Constantes para el cilindro: C_ATRACCION: 0.1
 
-MAX_X = 100
-MAX_Y = 100
-
+# Constantes para los parametros por defecto
+CONS_ANCHURA = 100
+CONS_ALTURA = 100
+CONS_REFRESH = 7
+CONS_GRAVEDAD = 10
+CANT_CONS_ITERS=100
+CONS_TEMP = 0.95
+CONS_TEMP_INI= 10.0
 EPSILON= 0.005
+#-----------------------------------------------------------------------------#
 
+
+
+#------------------------<<Funciones auxiliares>>-----------------------------#
 def sum_t(t1, t2):
+    """
+    Entrada: recibe dos tuplas de numeros reales
+
+    Funcionamiento: realiza una suma de tuplas componente a componente
+
+    salida:devuelve la suma de las tuplas
+    """
     return (t1[0] + t2[0], t1[1] + t2[1])
 
 def sub_t(t1, t2):
+    """
+    Entrada: recibe dos tuplas de numeros reales
+
+    Funcionamiento: realiza una diferencias de tuplas componente a componente
+
+    salida:devuelve la suma de las tuplas
+    """
     return (t1[0] - t2[0], t1[1] - t2[1])
+
+
+
+def lee_grafo_archivo(file_path):
+    """
+    Entrada: recibe la ruta de un archivo
+
+    Funcionamiento: levanta un grafo desde un archivo
+
+    salida:devuelve el grafo del archivo
+    """
+    with open(file_path, "r") as f:
+        aristas = []
+        cant_v=int(f.readline().rstrip())#rstrip sacatodo los espacios
+        vertices = [f.readline().strip("\n") for i in range(cant_v)]
+
+        aristas = [tuple(line.strip().split(' ')) for line in f]
+        for v1, v2 in aristas:
+            if v1 not in vertices or v2 not in vertices:
+                raise Exception("vertice incorrecto")
+
+    return (vertices, aristas)
+
+#-----------------------------------------------------------------------------#
+
+
 
 class LayoutGraph:
 
@@ -43,9 +98,8 @@ class LayoutGraph:
         # Guardo el grafo
         self.grafo = grafo
 
-        # Inicializo estado
-        # Completar
-        self.posiciones = {}
+        # Inicializamos las posiciones de los vertices
+        self.posiciones = self.init_posiciones(grafo[0])
 
         # Guardo opciones
         self.iters = iters
@@ -56,7 +110,9 @@ class LayoutGraph:
         self.refresh = refresh
         self.t0 = t0
 
-        k = np.sqrt((anchura*altura)/len(grafo[0]))
+        # Calculamos las constantes de atraccion y repulsion
+        self.cantidad_vertices = len(self.grafo[0])
+        k = np.sqrt((anchura*altura)/self.cantidad_vertices)
 
         self.temperatura = temp
         self.k1 = c1*k
@@ -64,15 +120,29 @@ class LayoutGraph:
 
 
     def init_posiciones(self, vertices):
+        """
+        Entrada: recibe los vertices del grafo
+
+        Funcionamiento: inicializa las posiciones de los vertices del grafo
+
+        salida: devuelve un diccionario con los vertices y sus posiciones
+        """
         if self.verbose:
             print("Inicializando posiciones de los vertices")
 
         return {
-            key: tuple(np.random.randint(101,size=2))
+            key: tuple(np.random.randint(self.anchura, size=2))
             for key in vertices
         }
 
     def dibujar_grafo(self):
+        """
+        Entrada: none
+
+        Funcionamiento: dibuja el grafo usando las funciones de matplotlib
+
+        salida: none
+        """
         if self.verbose:
             print("Graficando")
 
@@ -85,7 +155,7 @@ class LayoutGraph:
         minimo_x = self.anchura
         maximo_x = 0
 
-        # Dibujamos los vertices en pantalla
+        # Dibujamos los vertices y aristas en pantalla
         for v1 , v2 in self.grafo[1]:
             plt.plot(
                 (self.posiciones[v1][0], self.posiciones[v2][0]),
@@ -97,7 +167,7 @@ class LayoutGraph:
 
         # Les ponemos nombre y calculamos el vertice que esta mas cerca de los bordes
         for v in self.grafo[0]:
-            plt.annotate(v, xy=(self.posiciones[v][0], self.posiciones[v][1] + 5))
+            plt.annotate(v, xy=(self.posiciones[v][0], self.posiciones[v][1] + 2))
             
             maximo_y = max(self.posiciones[v][1], maximo_y)
             maximo_x = max(self.posiciones[v][0], maximo_x)
@@ -106,20 +176,24 @@ class LayoutGraph:
 
         # Dibujamos los ejes cercanos al objeto y pausamos el dibujo            
         plt.axis((minimo_x - 5, maximo_x + 5, minimo_y - 5, maximo_y + 5))
-        plt.pause(0.1)
+        plt.pause(0.041)
 
 
     def layout(self):
         """
-        Aplica el algoritmo de Fruchtermann-Reingold para obtener (y mostrar)
+        Entrada: none
+
+        Funcionamiento: aplica el algoritmo de Fruchtermann-Reingold para obtener (y mostrar)
         un layout
+
+        salida: none
         """
+
         if self.verbose:
             print("Iniciando graficado")
 
         # Variables
         const = 0
-        self.posiciones = self.init_posiciones(self.grafo[0])
 
         for it in range(0,self.iters):
             # Mostramos las iteraciones cada self.refresh calculos
@@ -133,6 +207,14 @@ class LayoutGraph:
 
 
     def step(self):
+        """
+        Entrada: none
+
+        Funcionamiento: lleva a cabo los calculos de las fuerzas de atraccion, repulsion , gravedad y actualiza las 
+        posiciopnes 
+
+        salida: none
+        """
         accum = self.init_acumuladores(self.grafo[0])
         self.computar_fuerzas_atraccion(accum)
         self.computar_fuerzas_repulsion(accum)
@@ -140,10 +222,25 @@ class LayoutGraph:
         self.actualizar_posiciones(self.grafo[0], accum)
         self.update_temperature()
 
+
     def update_temperature(self):
-        self.temperatura *= 0.95
+        """
+        Entrada: none
+
+        Funcionamiento: actualiza la temperatura a partir de t0
+
+        salida: none
+        """
+        self.temperatura *= self.t0
 
     def computar_gravedad(self, vertices, accum):
+        """
+        Entrada: recibe los vertices del grafo y los acumuladores
+
+        Funcionamiento: acumula la fuerza de gravedad de cada vertice en los acumuladores
+
+        salida: none
+        """
         if self.verbose:
             print("Computando fuerza de gravedad...")
 
@@ -154,12 +251,19 @@ class LayoutGraph:
             distancia = np.linalg.norm(grav)
 
             if distancia > EPSILON:
-                f = self.calc_f(self.gravedad, self.posiciones[vertice], grav, distancia)
+                f = self.calc_f(self.gravedad, self.posiciones[vertice], (self.anchura / 2,self.altura / 2), distancia)
                 accum[vertice] = sub_t(accum[vertice], f)
 
     def computar_fuerzas_atraccion(self, accum):
+        """
+        Entrada: recibe los acumuladores
+
+        Funcionamiento: acumula las fuerzas de atraccion de cada vertice en los acumuladores
+
+        salida: none
+        """
         if self.verbose:
-            print("Computando fuerza de atraccion...")
+            print("Computando fuerzas de atraccion...")
 
         # Por cada par arista calculamos su atraccion
         for v1 , v2 in self.grafo[1]:
@@ -180,13 +284,20 @@ class LayoutGraph:
             accum[v2] = sub_t(accum[v2], f)
 
     def computar_fuerzas_repulsion(self, accum):
+        """
+        Entrada: recibe los acumuladores
+
+        Funcionamiento: acumula las fuerzas de repulsion de cada vertice en los acumuladores
+
+        salida: none
+        """
         if self.verbose:
-            print("Computando fuerza de repulsion...")
+            print("Computando fuerzas de repulsion...")
 
         # Por cada vertice que esta en el mismo cuadrante calculamos su repulsion
         for v1 in self.grafo[0]:
             for v2 in self.grafo[0]:
-                if v1 != v2 and self.mismo_cuadrante(self.posiciones[v1],self.posiciones[v2]):
+                if v1 != v2:
                     distancia = self.norma(v1,v2)
  
                     # Si estan muy cerca, los alejamos
@@ -202,6 +313,13 @@ class LayoutGraph:
                     accum[v2] = sum_t(accum[v2], f)
 
     def actualizar_posiciones(self, vertices, accum):
+        """
+        Entrada: Vertices del grafo y las fuerzas de cada vertice acumuladas
+
+        Funcionamiento: Aplica la fuerza acumulada a los vertices correspondientes. Tambien, actualiza la temperatura
+
+        salida: None
+        """
         if self.verbose:
             print("Actualizando posiciones")
 
@@ -220,64 +338,51 @@ class LayoutGraph:
             self.posiciones[vertice] = self.limit_point(nueva_posicion)
 
     def norma(self, v1, v2):
+        """
+        Entrada: recibe dos vertices del grafo
+
+        Funcionamiento: calcula la distancia euclidiana entre los vertices
+
+        salida: devuelve dicha distancia 
+        """
         x1, y1 = self.posiciones[v1]
         x2, y2 = self.posiciones[v2]
         return np.linalg.norm((x1 - x2, y1 - y2))
 
-    def cuadrante(self, vertice):
-        mitad_x=MAX_X/2
-        mitad_y=MAX_Y/2
-        x=vertice[0]
-        y=vertice[1]
-        cuad=4
-        if x<mitad_x and y < mitad_y:
-            cuad=1
-        elif x>=mitad_x and y < mitad_y:
-            cuad=2
-        elif x<mitad_x and y >= mitad_y:
-            cuad=3
-        return cuad    
-
-    def mismo_cuadrante(self,vertice1,vertice2):
-        c1=self.cuadrante(vertice1)
-        c2=self.cuadrante(vertice2)
-        bandera=True
-        if c1!=c2:
-            bandera=False
-        return bandera    
-
-
     def calcular_atraccion(self, distancia):
-        # return (distancia**2)/self.k1
-        return self.k1 * np.log(distancia)
+        """
+        Entrada: Recibe la distancia entre los vertices
+
+        Funcionamiento: Calcula la fuerza de atraccion. Si hay muchos vertices, aplica una formula para grafos complejos
+
+        salida: La fuerza de atraccion
+        """
+        if self.cantidad_vertices <= GRAFO_COMPLEJO:
+            return (distancia**2)/self.k1
+        else:    
+            return self.k1 * np.log(distancia)
 
     def calcular_repulsion(self, distancia):
+        """ Aplica y devuelve la formula de la repulsion """
         return (self.k2**2)/distancia
 
     def init_acumuladores(self, vertices):
+        """ Inicializa las fuerzas acumuladas de cada vertice """
         return { vertice: (0, 0) for vertice in vertices }
 
     def limit(self, n, lim):
+        """ Si el numero esta entre 0 y el limite, devuelve el numero. Sino, devuelve 0 o lim, dependiendo de que limite infringio """
         return max(0, min(lim, n))
 
     def limit_point(self, p):
+        """ Devuelve las coordenadas del punto limitada por los bordes de la pantalla """
         return (self.limit(p[0], self.anchura), self.limit(p[1], self.altura))
 
     def calc_f(self, f, v1, v2, distancia):
+        """ calcula un vector entre dos puntos con modulo f """
         return (f * (v1[0] - v2[0]) / distancia, f * (v1[1] - v2[1]) / distancia)
 
-def lee_grafo_archivo(file_path):
-    with open(file_path, "r") as f:
-        aristas = []
-        cant_v=int(f.readline().rstrip())#rstrip sacatodo los espacios
-        vertices = [f.readline().strip("\n") for i in range(cant_v)]
 
-        aristas = [tuple(line.strip().split(' ')) for line in f]
-        for v1, v2 in aristas:
-            if v1 not in vertices or v2 not in vertices:
-                raise Exception("vertice incorrecto")
-
-    return (vertices, aristas)
 
 
 def main():
@@ -290,59 +395,57 @@ def main():
         action='store_true',
         help='Muestra mas informacion al correr el programa'
     )
-    # Cantidad de iteraciones, opcional, 50 por defecto
+    # Cantidad de iteraciones, opcional, CANT_CONS_ITERS por defecto
     parser.add_argument(
         '--iters',
         type=int,
         help='Cantidad de iteraciones a efectuar',
-        default=100
+        default=CANT_CONS_ITERS
     )
-
-    # 
-    parser.add_argument(
-        '--altura',
-        type=int,
-        help='Altura de la ventana',
-        default=MAX_Y
-    )
-
-        # 
-    parser.add_argument(
-        '--refresh',
-        type=int,
-        help='refresh',
-        default=7
-    )
-
-      # 
+    
+    #Anchura de la ventana, opcional, CONS_ANCHURA por defecto
     parser.add_argument(
         '--anchura',
         type=int,
-        help='Anchura de la ventana',
-        default=MAX_X
+        help='Anchura de la ventana(Natural)',
+        default=CONS_ANCHURA
     )
-    # Temperatura inicial
+
+    #Altura de la ventana, opcional, CONS_ALTURA por defecto
+    parser.add_argument(
+        '--altura',
+        type=int,
+        help='Altura de la ventana(Natural)',
+        default=CONS_ALTURA
+    )
+
+    #Tasa de refrezco, opcional, CONS_REFRESH por defecto 
+    parser.add_argument(
+        '--refresh',
+        type=int,
+        help='Tasa de refresco de la graficadora(Natural)',
+        default=CONS_REFRESH
+    )
+
+
+    # Temperatura inicial, opcional, CONS_TEMP_INI por defecto 
     parser.add_argument(
         '--temp',
         type=float,
         help='Temperatura inicial',
-        default=10.0
-    )
-    # Archivo del cual leer el grafo
-    parser.add_argument(
-        'file_name',
-        help='Archivo del cual leer el grafo a dibujar'
+        default=CONS_TEMP_INI
     )
 
-    #
+
+    # Constante para los calculos de atraccion, opcional, C_ATRACCION por defecto
     parser.add_argument(
         '--c1',
         type=float,
-        help='constante de atraccion',
+        help='Constante de atraccion',
         default=C_ATRACCION
     )
 
-        #
+    # Constante para los calculos de repulsion, opcional, C_REPULSION por defecto
     parser.add_argument(
         '--c2',
         type=float,
@@ -350,29 +453,29 @@ def main():
         default=C_REPULSION
     )
 
-            #
+    # Constante para la gravedad, opcional, C_GRAVEDAD por defecto
     parser.add_argument(
         '--gravedad',
         type=int,
-        help='constante de gravedad',
-        default=10
+        help='Constante de gravedad',
+        default=CONS_GRAVEDAD
     )
 
-                #
+    # Constante para disminuir la temperatura, opcional, CONS_TEMP por defecto
     parser.add_argument(
         '--t0',
         type=float,
-        help='constante de temperatura',
-        default=0.5
+        help='constante de cambio de temperatura',
+        default=CONS_TEMP
+    )
+
+    # Archivo del cual leer el grafo
+    parser.add_argument(
+        'file_name',
+        help='Archivo del cual leer el grafo a dibujar'
     )
     args = parser.parse_args()
 
-    # Descomentar abajo para ver funcionamiento de argparse
-   
-    # # TODO: Borrar antes de la entrega
-    grafo1 = ([1, 2, 3, 4, 5, 6, 7],
-              [(1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 7), (7, 1)])
-    
     # # Creamos nuestro objeto LayoutGraph
     layout_gr = LayoutGraph(
          grafo = lee_grafo_archivo(args.file_name),
@@ -388,7 +491,7 @@ def main():
          t0=args.t0
      )
     
-    # # Ejecutamos el layout
+    # Ejecutamos el grafico
     layout_gr.layout()
     return
 
