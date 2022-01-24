@@ -132,11 +132,28 @@ class LayoutGraph:
 
     def step(self):
         accum = self.init_acumuladores(self.grafo[0])
+        # self.arreglar_bordes(self.grafo[0], accum)
         self.computar_fuerzas_atraccion(accum)
         self.computar_fuerzas_repulsion(accum)
         self.computar_gravedad(self.grafo[0], accum)
         self.actualizar_posiciones(self.grafo[0], accum)
         self.update_temperature()
+
+    def arreglar_bordes(self, vertices, accum):
+        for vertice in vertices:
+            x, y = self.posiciones[vertice]
+            if x == 0 or x == self.anchura:
+                grav = (self.anchura / 2 - x, self.altura / 2 - y)
+                distancia = np.linalg.norm(grav)
+                f_x = 100* (self.posiciones[vertice][0] - grav[0]) / distancia
+                
+                accum[vertice] = sub_t(accum[vertice], (f_x, 0))
+            if y == 0 or y == self.altura:
+                grav = (self.anchura / 2 - x, self.altura / 2 - y)
+                distancia = np.linalg.norm(grav)
+                f_y = 100* (self.posiciones[vertice][1] - grav[1]) / (2*distancia)
+                
+                accum[vertice] = sub_t(accum[vertice], (0, f_y))
 
     def update_temperature(self):
         self.temperatura *= 0.95
@@ -149,17 +166,17 @@ class LayoutGraph:
             grav = (self.anchura / 2 - x, self.altura / 2 - y)
             distancia = np.linalg.norm(grav)
 
-            if distancia < EPSILON:
-                num=np.random.rand(1)
-                self.posiciones[vertice] = sub_t(self.posiciones[vertice], (num[0], num[0]))
-                x, y = self.posiciones[vertice]
-                grav = (self.anchura / 2 - x, self.altura / 2 - y)
-                distancia = np.linalg.norm(grav)
+            # if distancia < EPSILON: Ver si va
+            #     num=np.random.rand(1)
+            #     self.posiciones[vertice] = sub_t(self.posiciones[vertice], (num[0], num[0]))
+            #     x, y = self.posiciones[vertice]
+            #     grav = (self.anchura / 2 - x, self.altura / 2 - y)
+            #     distancia = np.linalg.norm(grav)
+            if distancia:
+                f_x = self.gravedad * (self.posiciones[vertice][0] - grav[0]) / distancia
+                f_y = self.gravedad * (self.posiciones[vertice][1] - grav[1]) / distancia
                 
-            f_x = self.gravedad * (self.posiciones[vertice][0] - grav[0]) / distancia
-            f_y = self.gravedad * (self.posiciones[vertice][1] - grav[1]) / distancia
-            
-            accum[vertice] = sub_t(accum[vertice], (f_x, f_y))
+                accum[vertice] = sub_t(accum[vertice], (f_x, f_y))
 
 
 
@@ -170,8 +187,8 @@ class LayoutGraph:
             distancia = self.norma(v1,v2)
             if distancia<EPSILON:
                 num=np.random.rand(1)
-                self.posiciones[v2] = sub_t(self.posiciones[v2], (num[0], num[0]))
-                self.posiciones[v1] = sum_t(self.posiciones[v1], (num[0], num[0]))
+                self.posiciones[v2] = sum_t(self.posiciones[v2], (num[0], num[0]))
+                self.posiciones[v1] = sub_t(self.posiciones[v1], (num[0], num[0]))
                 distancia = self.norma(v1,v2)
 
             fuerza_a = self.calcular_atraccion(distancia)
@@ -186,7 +203,8 @@ class LayoutGraph:
             print("Computando fuerza de repulsion...")
         for v1 in self.grafo[0]:
             for v2 in self.grafo[0]:
-                if v1 != v2 and self.mismo_cuadrante(self.posiciones[v1],self.posiciones[v2]):
+                # if v1 != v2 and self.mismo_cuadrante(self.posiciones[v1],self.posiciones[v2]):
+                if v1 != v2:
                     distancia = self.norma(v1,v2)
  
                     if distancia<EPSILON:
@@ -211,8 +229,14 @@ class LayoutGraph:
                 f_x = (v_x / modulo) * self.temperatura
                 f_y = (v_y / modulo) * self.temperatura
                 accum[vertice] = (f_x, f_y)
+
             nueva_posicion = sum_t(self.posiciones[vertice], accum[vertice])
             self.posiciones[vertice] = self.limit_point(nueva_posicion)
+
+            # if self.posiciones[vertice][0] == 0:
+            # if self.posiciones[vertice][0] == 100:
+            # if self.posiciones[vertice][1] == 0:
+            # if self.posiciones[vertice][1] == 100:
 
     def norma(self, v1, v2):
         x1, y1 = self.posiciones[v1]
@@ -331,7 +355,7 @@ def main():
     #
     parser.add_argument(
         '--c1',
-        type=int,
+        type=float,
         help='constante de atraccion',
         default=C_ATRACCION
     )
@@ -339,7 +363,7 @@ def main():
         #
     parser.add_argument(
         '--c2',
-        type=int,
+        type=float,
         help='constante de repulsion',
         default=C_REPULSION
     )
