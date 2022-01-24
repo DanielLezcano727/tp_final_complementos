@@ -11,6 +11,9 @@ import numpy as np
 C_REPULSION = 0.1
 C_ATRACCION = 0.9
 
+# Constantes para el cilindro: C_REPULSION: 0.15
+# Constantes para el cilindro: C_ATRACCION: 0.1
+
 MAX_X = 100
 MAX_Y = 100
 
@@ -102,7 +105,7 @@ class LayoutGraph:
             minimo_x = min(self.posiciones[v][0], minimo_x)
 
         # Dibujamos los ejes cercanos al objeto y pausamos el dibujo            
-        plt.axis((minimo_x - 20, maximo_x + 20, minimo_y - 20, maximo_y + 20))
+        plt.axis((minimo_x - 5, maximo_x + 5, minimo_y - 5, maximo_y + 5))
         plt.pause(0.1)
 
 
@@ -245,7 +248,8 @@ class LayoutGraph:
 
 
     def calcular_atraccion(self, distancia):
-        return (distancia**2)/self.k1
+        # return (distancia**2)/self.k1
+        return self.k1 * np.log(distancia)
 
     def calcular_repulsion(self, distancia):
         return (self.k2**2)/distancia
@@ -260,8 +264,7 @@ class LayoutGraph:
         return (self.limit(p[0], self.anchura), self.limit(p[1], self.altura))
 
     def calc_f(self, f, v1, v2, distancia):
-        res = (f * (v1[0] - v2[0]) / distancia, f * (v1[1] - v2[1]) / distancia)
-        return res
+        return (f * (v1[0] - v2[0]) / distancia, f * (v1[1] - v2[1]) / distancia)
 
 def lee_grafo_archivo(file_path):
     with open(file_path, "r") as f:
