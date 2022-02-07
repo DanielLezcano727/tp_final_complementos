@@ -16,7 +16,6 @@ import numpy as np
 C_REPULSION = 0.1
 C_ATRACCION = 0.9
 
-GRAFO_COMPLEJO = 15     #Cantidad de vertices
 # Constantes para el cilindro: C_REPULSION: 0.15
 # Constantes para el cilindro: C_ATRACCION: 0.1
 
@@ -167,7 +166,7 @@ class LayoutGraph:
 
         # Les ponemos nombre y calculamos el vertice que esta mas cerca de los bordes
         for v in self.grafo[0]:
-            plt.annotate(v, xy=(self.posiciones[v][0], self.posiciones[v][1] + 2))
+            plt.annotate(v, xy=(self.posiciones[v][0], self.posiciones[v][1] + 0.5))
             
             maximo_y = max(self.posiciones[v][1], maximo_y)
             maximo_x = max(self.posiciones[v][0], maximo_x)
@@ -203,6 +202,8 @@ class LayoutGraph:
             self.step()
 
         # Mostramos el dibujo
+        if self.verbose:
+            print("Graficado del grafo finalizado")
         plt.show()
 
 
@@ -231,6 +232,9 @@ class LayoutGraph:
 
         salida: none
         """
+        if self.verbose:
+            print('Actualizando la temperatura')
+
         self.temperatura *= self.t0
 
     def computar_gravedad(self, vertices, accum):
@@ -353,14 +357,11 @@ class LayoutGraph:
         """
         Entrada: Recibe la distancia entre los vertices
 
-        Funcionamiento: Calcula la fuerza de atraccion. Si hay muchos vertices, aplica una formula para grafos complejos
+        Funcionamiento: Calcula la fuerza de atraccion.
 
         salida: La fuerza de atraccion
         """
-        if self.cantidad_vertices <= GRAFO_COMPLEJO:
-            return (distancia**2)/self.k1
-        else:    
-            return self.k1 * np.log(distancia)
+        return self.k1 * np.log(distancia)
 
     def calcular_repulsion(self, distancia):
         """ Aplica y devuelve la formula de la repulsion """
@@ -368,6 +369,9 @@ class LayoutGraph:
 
     def init_acumuladores(self, vertices):
         """ Inicializa las fuerzas acumuladas de cada vertice """
+        if self.verbose:
+            print('Iniciando acumuladores de fuerza')
+
         return { vertice: (0, 0) for vertice in vertices }
 
     def limit(self, n, lim):
